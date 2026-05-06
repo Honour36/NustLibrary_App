@@ -1,7 +1,6 @@
 class EnvConfig {
-  // Replace this with your live Render/Railway URL after deployment
-  // Example: 'https://nust-library-api.onrender.com'
-  static const String prodBaseUrl = 'https://nust-library-backend.onrender.com';
+  // Live Render URL
+  static const String prodBaseUrl = 'https://nustlibrary-app.onrender.com';
   static const String devBaseUrl = 'http://localhost:3000';
   
   static const bool isProduction = bool.fromEnvironment('dart.vm.product') || true;
