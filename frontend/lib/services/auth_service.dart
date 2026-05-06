@@ -1,11 +1,14 @@
 import 'dart:convert';
+import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/env_config.dart';
+
 class AuthService extends ChangeNotifier {
-  static const String baseUrl = 'http://localhost:3000/api/auth';
+  static String get baseUrl => EnvConfig.authBaseUrl;
 
   Map<String, dynamic>? _user;
   String? _token;
@@ -54,44 +57,50 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> login(String email, String password, {bool skipOnboarding = true}) async {
+  Future<String?> login(String email, String password, {bool skipOnboarding = true}) async {
     try {
+      debugPrint('AuthService: Attempting login for $email');
       final response = await http.post(
         Uri.parse('$baseUrl/login'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({'email': email.trim(), 'password': password}),
       );
 
-      if (response.statusCode != 200) return false;
-
       final data = json.decode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode != 200) {
+        final errorMsg = data['error'] ?? 'Login failed. Please check your credentials.';
+        debugPrint('AuthService: Login failed with status ${response.statusCode}: ${json.encode(data)}');
+        return errorMsg.toString();
+      }
+
       _user = Map<String, dynamic>.from(data['user'] as Map);
       _token = data['session']?['access_token']?.toString();
-
+      
+      debugPrint('AuthService: Login successful, token: ${_token != null}');
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('user', json.encode(_user));
       if (_token != null) {
         await prefs.setString('token', _token!);
       }
 
-
       if (skipOnboarding) {
         await completeOnboarding();
       } else {
-        // Reset the flag if we are NOT skipping, to ensure they go through it
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('has_completed_onboarding', false);
         _hasCompletedOnboarding = false;
       }
 
       notifyListeners();
-      return true;
-    } catch (_) {
-      return false;
+      return null; // Success
+    } catch (e) {
+      debugPrint('AuthService: Exception during login: $e');
+      return 'Could not connect to the server. Please check your connection.';
     }
   }
 
-  Future<bool> register(String email, String password, String fullName, String studentId) async {
+  Future<String?> register(String email, String password, String fullName, String studentId) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/register'),
@@ -103,9 +112,14 @@ class AuthService extends ChangeNotifier {
           'student_id': studentId.trim(),
         }),
       );
-      return response.statusCode == 201;
-    } catch (_) {
-      return false;
+      
+      if (response.statusCode != 201) {
+        final data = json.decode(response.body);
+        return data['error'] ?? 'Registration failed.';
+      }
+      return null; // Success
+    } catch (e) {
+      return 'Could not connect to the server.';
     }
   }
 

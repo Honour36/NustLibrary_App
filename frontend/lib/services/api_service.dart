@@ -2,10 +2,11 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../config/env_config.dart';
 import '../models/models.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://localhost:3000/api';
+  static String get baseUrl => EnvConfig.apiBaseUrl;
 
   Future<dynamic> _get(String path, {Map<String, String>? query}) async {
     final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
@@ -201,5 +202,25 @@ class ApiService {
       'year': year,
       'feedback': feedback,
     });
+  }
+
+  Future<void> deleteDocument(String id) async {
+    final response = await http.delete(Uri.parse('$baseUrl/pdfs/$id'));
+    if (response.statusCode >= 400) {
+      final resBody = json.decode(response.body);
+      throw Exception('Delete failed: ${response.statusCode} - ${resBody['error'] ?? response.body}');
+    }
+  }
+
+  Future<void> updateDocument(String id, Map<String, dynamic> payload) async {
+    final response = await http.patch(
+      Uri.parse('$baseUrl/pdfs/$id'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode(payload),
+    );
+    if (response.statusCode >= 400) {
+      final resBody = json.decode(response.body);
+      throw Exception('Update failed: ${response.statusCode} - ${resBody['error'] ?? response.body}');
+    }
   }
 }

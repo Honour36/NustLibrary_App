@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'services/notification_service.dart';
 
 import 'admin/screens/admin_dashboard_screen.dart';
 import 'admin/screens/analytics_screen.dart';
@@ -34,6 +35,7 @@ import 'upload/screens/upload_progress_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService().init();
 
   await Supabase.initialize(
     url: 'https://ibycqyrnpkhsljzifiza.supabase.co',

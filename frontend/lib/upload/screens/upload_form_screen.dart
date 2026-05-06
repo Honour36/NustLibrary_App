@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/notification_service.dart';
 
 class UploadFormScreen extends StatefulWidget {
   const UploadFormScreen({super.key});
@@ -164,6 +165,12 @@ class _UploadFormScreenState extends State<UploadFormScreen> {
         'file_url': fileUrl,
         'user_id': auth.user?['id'],
       });
+      
+      // Trigger notification
+      await NotificationService().showNotification(
+        title: 'Upload Successful',
+        body: 'Your resource "${_title.text}" has been submitted for review.',
+      );
       
       if (mounted) {
         context.push('/upload/progress');

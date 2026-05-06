@@ -90,14 +90,26 @@ router.post('/', async (req: Request, res: Response) => {
   }
 });
 
-// Get download URL (increment download count)
-router.post('/:id/download', async (req: Request, res: Response) => {
+// Update PDF
+router.patch('/:id', async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const updates = req.body;
+  try {
+    const { data, error } = await supabase.from('pdfs').update(updates).eq('id', id).select().single();
+    if (error) return res.status(400).json({ error: error.message });
+    return res.json(data);
+  } catch {
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Delete PDF
+router.delete('/:id', async (req: Request, res: Response) => {
   const { id } = req.params;
   try {
-    const { data, error } = await supabase.from('pdfs').select('file_url, downloads, title').eq('id', id).single();
-    if (error) return res.status(404).json({ error: 'PDF not found' });
-    await supabase.from('pdfs').update({ downloads: (data.downloads || 0) + 1 }).eq('id', id);
-    return res.json({ file_url: data.file_url, title: data.title });
+    const { error } = await supabase.from('pdfs').delete().eq('id', id);
+    if (error) return res.status(400).json({ error: error.message });
+    return res.status(204).send();
   } catch {
     return res.status(500).json({ error: 'Internal server error' });
   }

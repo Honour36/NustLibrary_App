@@ -22,15 +22,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _submit() async {
     setState(() => _loading = true);
-    final ok = await context.read<AuthService>().register(_email.text, _password.text, _name.text, _studentId.text);
+    final errorMessage = await context.read<AuthService>().register(_email.text, _password.text, _name.text, _studentId.text);
     if (!mounted) return;
     setState(() => _loading = false);
-    if (ok) {
+    if (errorMessage == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Account created. Sign in next.')));
       context.go('/login?new=true');
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Registration failed.')));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMessage)));
   }
 
   @override

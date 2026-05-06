@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/notification_service.dart';
 
 class DocumentDetailScreen extends StatefulWidget {
   final String id;
@@ -52,6 +53,14 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
       final saved = await _api.toggleBookmark(userId, widget.id);
       if (mounted) {
         setState(() => _isSaved = saved);
+        
+        if (saved) {
+          NotificationService().showNotification(
+            title: 'Book Saved',
+            body: 'Document has been added to your saved books.',
+          );
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(saved ? 'Saved to bookmarks' : 'Removed from bookmarks'),

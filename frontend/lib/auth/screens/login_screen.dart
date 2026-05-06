@@ -4,6 +4,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
 import '../../services/auth_service.dart';
+import '../../services/notification_service.dart';
 import '../widgets/auth_text_field.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -34,7 +35,7 @@ class _LoginScreenState extends State<LoginScreen> {
     // If we came from registration, we don't want to skip onboarding
     final isNewUser = GoRouterState.of(context).uri.queryParameters['new'] == 'true';
     
-    final ok = await context.read<AuthService>().login(
+    final errorMessage = await context.read<AuthService>().login(
       _emailController.text, 
       _passwordController.text,
       skipOnboarding: !isNewUser,
@@ -42,14 +43,19 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
     setState(() => _isLoading = false);
     
-    if (ok) {
+    if (errorMessage == null) {
+      NotificationService().showNotification(
+        title: 'Welcome Back!',
+        body: 'You have successfully logged in to Nust Library.',
+      );
       context.go('/');
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Login failed. Please check your credentials.'),
-        backgroundColor: Color(0xFFFF3D1B),
+      SnackBar(
+        content: Text(errorMessage),
+        backgroundColor: const Color(0xFFFF3D1B),
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }

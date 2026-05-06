@@ -17,13 +17,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _login() async {
     setState(() => _isLoading = true);
-    final success = await context.read<AuthService>().login(
+    final error = await Provider.of<AuthService>(context, listen: false).login(
       _emailController.text,
       _passwordController.text,
     );
     setState(() => _isLoading = false);
 
-    if (success) {
+    if (error == null) {
       if (mounted) context.go('/');
     } else {
       if (mounted) {
