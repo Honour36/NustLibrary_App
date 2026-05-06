@@ -8,8 +8,8 @@ const supabase_js_1 = require("@supabase/supabase-js");
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
 const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
-if (!supabaseUrl || !supabaseAnonKey) {
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
+if (!supabaseUrl || !supabaseKey) {
     console.warn('Warning: Missing Supabase credentials in .env file');
 }
-exports.supabase = (0, supabase_js_1.createClient)(supabaseUrl, supabaseAnonKey);
+exports.supabase = (0, supabase_js_1.createClient)(supabaseUrl, supabaseKey);

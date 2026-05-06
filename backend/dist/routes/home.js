@@ -21,18 +21,36 @@ router.get('/', (_req, res) => __awaiter(void 0, void 0, void 0, function* () {
             supabase_1.supabase.from('pdfs').select('*, categories(name, icon)').order('created_at', { ascending: false }).limit(8),
             supabase_1.supabase.from('categories').select('id, name, icon, description').order('name'),
         ]);
-        if (featured.error || trending.error || recent.error || categories.error) {
-            return res.status(400).json({ error: 'Unable to build home payload' });
-        }
+        // Log errors but don't fail the whole request — return empty arrays instead
+        if (featured.error)
+            console.warn('featured error:', featured.error.message);
+        if (trending.error)
+            console.warn('trending error:', trending.error.message);
+        if (recent.error)
+            console.warn('recent error:', recent.error.message);
+        if (categories.error)
+            console.warn('categories error:', categories.error.message);
+        const recentDocs = (_a = recent.data) !== null && _a !== void 0 ? _a : [];
+        // Mock continue_reading from recent docs with a fake progress field
+        const continueReading = recentDocs.slice(0, 3).map(doc => (Object.assign(Object.assign({}, doc), { reading_progress: Math.random() * 0.8 + 0.1 })));
         return res.json({
-            featured: (_a = featured.data) !== null && _a !== void 0 ? _a : [],
-            trending: (_b = trending.data) !== null && _b !== void 0 ? _b : [],
-            recent: (_c = recent.data) !== null && _c !== void 0 ? _c : [],
+            featured: (_b = featured.data) !== null && _b !== void 0 ? _b : [],
+            trending: (_c = trending.data) !== null && _c !== void 0 ? _c : [],
+            recent: recentDocs,
             categories: (_d = categories.data) !== null && _d !== void 0 ? _d : [],
+            continue_reading: continueReading,
         });
     }
-    catch (_e) {
-        return res.status(500).json({ error: 'Internal server error' });
+    catch (err) {
+        console.error('Home error:', err.message);
+        // Return empty payload so the app still loads
+        return res.json({
+            featured: [],
+            trending: [],
+            recent: [],
+            categories: [],
+            continue_reading: [],
+        });
     }
 }));
 exports.default = router;

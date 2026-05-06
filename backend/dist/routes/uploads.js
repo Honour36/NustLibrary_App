@@ -10,41 +10,72 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const mockData_1 = require("../store/mockData");
+const supabase_1 = require("../config/supabase");
 const router = (0, express_1.Router)();
+// Get uploads for a specific user or all uploads
 router.get('/:userId', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { userId } = req.params;
-    const items = mockData_1.uploads
-        .filter((item) => item.user_id === userId || userId === '')
-        .map((item) => ({
-        id: item.id,
-        title: item.title,
-        description: item.description,
-        author: item.author,
-        category_id: item.category_name.toLowerCase().replace(/ /g, '-'),
-        category_name: item.category_name,
-        file_url: item.file_url,
-        views: 0,
-        downloads: 0,
-    }));
-    return res.json(items);
+    try {
+        let query = supabase_1.supabase.from('pdfs').select('*, categories(name)');
+        if (userId && userId !== 'all' && userId !== 'null') {
+            query = query.eq('user_id', userId);
+        }
+        const { data, error } = yield query.order('created_at', { ascending: false });
+        if (error) {
+            console.error('Error fetching uploads:', error);
+            return res.status(400).json({ error: error.message });
+        }
+        return res.json(data);
+    }
+    catch (err) {
+        return res.status(500).json({ error: 'Internal server error' });
+    }
 }));
+// Helper: return null if a value is a mock/placeholder UUID
+function realUuidOrNull(val) {
+    if (!val)
+        return null;
+    // Mock UUIDs we generated start with 00000000 or 10000000
+    if (val.startsWith('00000000-') || val.startsWith('10000000-'))
+        return null;
+    return val;
+}
+// Create a new upload - inserts directly into pdfs table (no review queue)
 router.post('/', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b, _c, _d, _e, _f, _g;
-    const payload = req.body;
-    const item = {
-        id: `upload-${Date.now()}`,
-        title: (_a = payload.title) !== null && _a !== void 0 ? _a : 'Untitled upload',
-        author: (_b = payload.author) !== null && _b !== void 0 ? _b : 'Unknown',
-        category_name: (_c = payload.category_name) !== null && _c !== void 0 ? _c : 'General',
-        description: (_d = payload.description) !== null && _d !== void 0 ? _d : '',
-        file_url: (_e = payload.file_url) !== null && _e !== void 0 ? _e : '',
-        user_id: (_f = payload.user_id) !== null && _f !== void 0 ? _f : '',
-        user_name: (_g = payload.user_name) !== null && _g !== void 0 ? _g : 'Student',
-        status: 'pending',
-        created_at: new Date().toISOString(),
-    };
-    mockData_1.uploads.unshift(item);
-    return res.status(201).json(item);
+    const { title, description, category_id, faculty_id, program_id, year, author, file_url, user_id } = req.body;
+    try {
+        const safeCategoryId = realUuidOrNull(category_id);
+        const safeFacultyId = realUuidOrNull(faculty_id);
+        const safeProgramId = realUuidOrNull(program_id);
+        const record = {
+            title,
+            description,
+            file_url,
+            author,
+            year: year || null,
+            views: 0,
+            downloads: 0,
+            featured: false,
+        };
+        // Only include FK fields if we have a real UUID
+        if (safeCategoryId)
+            record.category_id = safeCategoryId;
+        if (safeFacultyId)
+            record.faculty_id = safeFacultyId;
+        if (safeProgramId)
+            record.program_id = safeProgramId;
+        if (user_id)
+            record.user_id = user_id;
+        const { data, error } = yield supabase_1.supabase.from('pdfs').insert([record]).select().single();
+        if (error) {
+            console.error('Error creating direct upload:', error);
+            return res.status(400).json({ error: error.message });
+        }
+        return res.status(201).json(data);
+    }
+    catch (err) {
+        console.error('Critical error in direct upload:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
 }));
 exports.default = router;

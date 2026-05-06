@@ -35,21 +35,34 @@ router.get('/', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const limitNum = parseInt(limit);
     const offset = (pageNum - 1) * limitNum;
     try {
+        let sortField = 'created_at';
+        let ascending = false;
+        if (sort === 'popular') {
+            sortField = 'downloads';
+        }
+        else if (sort === 'alphabetical') {
+            sortField = 'title';
+            ascending = true;
+        }
+        // Use left join via !inner hint — works even when category_id is null
         let query = supabase_1.supabase
             .from('pdfs')
-            .select('*, categories(name, icon)', { count: 'exact' })
+            .select('id, title, description, category_id, file_url, file_size, author, year, tags, views, downloads, featured, created_at, categories(name, icon)', { count: 'exact' })
             .range(offset, offset + limitNum - 1)
-            .order(sort === 'popular' ? 'downloads' : 'created_at', { ascending: false });
+            .order(sortField, { ascending });
         if (search)
             query = query.ilike('title', `%${search}%`);
         if (category_id)
             query = query.eq('category_id', category_id);
         const { data, error, count } = yield query;
-        if (error)
+        if (error) {
+            console.error('pdfs GET error:', error.message);
             return res.status(400).json({ error: error.message });
-        return res.json({ data, total: count, page: pageNum, limit: limitNum });
+        }
+        return res.json({ data: data !== null && data !== void 0 ? data : [], total: count !== null && count !== void 0 ? count : 0, page: pageNum, limit: limitNum });
     }
-    catch (_a) {
+    catch (err) {
+        console.error('pdfs GET crash:', err.message);
         return res.status(500).json({ error: 'Internal server error' });
     }
 }));
@@ -87,15 +100,28 @@ router.post('/', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         return res.status(500).json({ error: 'Internal server error' });
     }
 }));
-// Get download URL (increment download count)
-router.post('/:id/download', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+// Update PDF
+router.patch('/:id', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id } = req.params;
+    const updates = req.body;
+    try {
+        const { data, error } = yield supabase_1.supabase.from('pdfs').update(updates).eq('id', id).select().single();
+        if (error)
+            return res.status(400).json({ error: error.message });
+        return res.json(data);
+    }
+    catch (_a) {
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+}));
+// Delete PDF
+router.delete('/:id', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id } = req.params;
     try {
-        const { data, error } = yield supabase_1.supabase.from('pdfs').select('file_url, downloads, title').eq('id', id).single();
+        const { error } = yield supabase_1.supabase.from('pdfs').delete().eq('id', id);
         if (error)
-            return res.status(404).json({ error: 'PDF not found' });
-        yield supabase_1.supabase.from('pdfs').update({ downloads: (data.downloads || 0) + 1 }).eq('id', id);
-        return res.json({ file_url: data.file_url, title: data.title });
+            return res.status(400).json({ error: error.message });
+        return res.status(204).send();
     }
     catch (_a) {
         return res.status(500).json({ error: 'Internal server error' });

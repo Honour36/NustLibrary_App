@@ -18,6 +18,8 @@ const downloads_1 = __importDefault(require("./routes/downloads"));
 const ratings_1 = __importDefault(require("./routes/ratings"));
 const flags_1 = __importDefault(require("./routes/flags"));
 const admin_1 = __importDefault(require("./routes/admin"));
+const onboarding_1 = __importDefault(require("./routes/onboarding"));
+const storage_1 = __importDefault(require("./routes/storage"));
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const port = process.env.PORT || 3000;
@@ -40,6 +42,8 @@ app.use('/api/downloads', downloads_1.default);
 app.use('/api/ratings', ratings_1.default);
 app.use('/api/flags', flags_1.default);
 app.use('/api/admin', admin_1.default);
+app.use('/api/onboarding', onboarding_1.default);
+app.use('/api/storage', storage_1.default);
 // 404 handler
 app.use((_req, res) => {
     res.status(404).json({ error: 'Route not found' });

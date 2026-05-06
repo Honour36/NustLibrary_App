@@ -12,7 +12,40 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const supabase_1 = require("../config/supabase");
 const mockData_1 = require("../store/mockData");
+const seed_onboarding_1 = require("../store/seed_onboarding");
 const router = (0, express_1.Router)();
+router.post('/seed-onboarding', (_req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        for (const faculty of seed_onboarding_1.facultiesData) {
+            // Insert faculty
+            const { data: facultyRecord, error: fError } = yield supabase_1.supabase
+                .from('faculties')
+                .upsert({ name: faculty.name }, { onConflict: 'name' })
+                .select()
+                .single();
+            if (fError) {
+                console.error(`Error inserting faculty ${faculty.name}:`, fError);
+                continue;
+            }
+            // Insert programs for this faculty
+            const programs = faculty.programs.map((p) => ({
+                name: p.name,
+                level: p.level,
+                faculty_id: facultyRecord.id,
+            }));
+            const { error: pError } = yield supabase_1.supabase
+                .from('programs')
+                .upsert(programs, { onConflict: 'name, faculty_id' });
+            if (pError) {
+                console.error(`Error inserting programs for ${faculty.name}:`, pError);
+            }
+        }
+        return res.json({ message: 'Onboarding data seeded successfully' });
+    }
+    catch (err) {
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+}));
 router.get('/dashboard', (_req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
     try {
