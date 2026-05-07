@@ -65,15 +65,26 @@ router.get('/modules', async (req: Request, res: Response) => {
   }
 });
 
+// Helper: return null if a value is not a valid UUID (handles mock/placeholder IDs)
+function realUuidOrNull(val: string | undefined | null): string | null {
+  if (!val) return null;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(val) ? val : null;
+}
+
 // Complete onboarding
 router.post('/complete', async (req: Request, res: Response) => {
   const { user_id, faculty_id, program_id, year, modules, feedback } = req.body;
+  
+  const safeFacultyId = realUuidOrNull(faculty_id);
+  const safeProgramId = realUuidOrNull(program_id);
+
   try {
     // Save to profiles
     const { error } = await supabase.from('profiles').upsert({
       id: user_id,
-      faculty_id,
-      program_id,
+      faculty_id: safeFacultyId,
+      program_id: safeProgramId,
       academic_year: year,
       ceremonial_hall_feedback: feedback,
       has_seen_onboarding: true,

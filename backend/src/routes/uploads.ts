@@ -26,11 +26,18 @@ router.get('/:userId', async (req: Request, res: Response) => {
   }
 });
 
-// Helper: return null if a value is a mock/placeholder UUID
+// Helper: return null if a value is not a valid UUID (handles mock/placeholder IDs)
 function realUuidOrNull(val: string | undefined | null): string | null {
   if (!val) return null;
-  // Mock UUIDs we generated start with 00000000 or 10000000
-  if (val.startsWith('00000000-') || val.startsWith('10000000-')) return null;
+  
+  // Standard UUID regex
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  
+  if (!uuidRegex.test(val)) {
+    console.log(`[Uploads] Filtering out invalid UUID: ${val}`);
+    return null;
+  }
+  
   return val;
 }
 
