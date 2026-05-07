@@ -1,79 +1,67 @@
 import { Router, Request, Response } from 'express';
 import { supabase } from '../config/supabase';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
 const router = Router();
+const JWT_SECRET = process.env.JWT_SECRET || 'nust_secret_key_2024';
+
+// Helper to validate student ID
+const isValidStudentId = (id: string) => {
+  return id.toLowerCase().startsWith('n');
+};
 
 // Register
 router.post('/register', async (req: Request, res: Response) => {
   const { email, password, full_name, student_id } = req.body;
-  console.log(`[Auth] Registration attempt: ${email}`);
-  
+  console.log(`[Auth] Custom Registration attempt: ${email}`);
+
+  if (!email || !password || !full_name || !student_id) {
+    return res.status(400).json({ error: 'All fields are required' });
+  }
+
+  if (!isValidStudentId(student_id)) {
+    return res.status(400).json({ error: 'Student ID must start with "n"' });
+  }
+
   try {
-    // We use admin.createUser to bypass email confirmation requirements
-    // This requires the SUPABASE_SERVICE_ROLE_KEY to be set in .env
-    const { data, error } = await supabase.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { full_name, student_id }
-    });
+    // 1. Check if user already exists in custom table
+    const { data: existingUser } = await supabase
+      .from('app_users')
+      .select('id')
+      .or(`email.eq.${email},student_id.eq.${student_id}`)
+      .single();
 
-    if (error) {
-      console.error(`[Auth] Admin creation failed for ${email}:`, error.message);
-      
-      // If user already exists, we should try to update/confirm them instead of falling back to signUp
-      if (error.message.includes('already registered') || error.message.includes('already exists')) {
-        console.log(`[Auth] User ${email} already exists. Attempting to ensure they are confirmed...`);
-        
-        // Find the user to get their ID
-        const { data: userList } = await supabase.auth.admin.listUsers();
-        const existingUser = userList?.users.find(u => u.email === email);
-        
-        if (existingUser) {
-          // Force confirm and update metadata just in case
-          await supabase.auth.admin.updateUserById(existingUser.id, { 
-            email_confirm: true,
-            user_metadata: { full_name, student_id }
-          });
-          
-          return res.status(201).json({ 
-            user: existingUser, 
-            message: 'User already registered. You can now log in.' 
-          });
-        }
-      }
-
-      // If it's a real failure (not "already exists"), try fallback ONLY if it's not a service role issue
-      if (error.message.includes('not authorized') || error.message.includes('Invalid key')) {
-        return res.status(401).json({ error: 'Server configuration error: Admin API unauthorized.' });
-      }
-
-      console.warn(`[Auth] Falling back to standard signUp for ${email}...`);
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { full_name, student_id } },
-      });
-
-      if (signUpError) {
-        console.error(`[Auth] Fallback signUp failed:`, signUpError.message);
-        return res.status(400).json({ error: signUpError.message });
-      }
-
-      // Auto-confirm if signup succeeded but needs confirmation
-      if (signUpData.user) {
-        await supabase.auth.admin.updateUserById(signUpData.user.id, { email_confirm: true });
-      }
-
-      return res.status(201).json({ 
-        user: signUpData.user, 
-        message: 'Registration successful' 
-      });
+    if (existingUser) {
+      return res.status(400).json({ error: 'Email or Student ID already registered' });
     }
 
-    console.log(`[Auth] User created via admin: ${data.user?.id}`);
+    // 2. Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // 3. Create user in custom table
+    const { data, error } = await supabase
+      .from('app_users')
+      .insert([
+        { 
+          email: email.trim().toLowerCase(), 
+          password: hashedPassword, 
+          full_name: full_name.trim(), 
+          student_id: student_id.trim().toLowerCase() 
+        }
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[Auth] Custom user creation failed:', error.message);
+      return res.status(400).json({ error: error.message });
+    }
+
+    console.log(`[Auth] Custom user created: ${data.id}`);
     return res.status(201).json({ 
-      user: data.user, 
+      user: { id: data.id, email: data.email, user_metadata: { full_name: data.full_name, student_id: data.student_id } },
       message: 'Registration successful' 
     });
   } catch (err) {
@@ -85,78 +73,66 @@ router.post('/register', async (req: Request, res: Response) => {
 // Login
 router.post('/login', async (req: Request, res: Response) => {
   const { email, password } = req.body;
-  console.log(`[Auth] Login attempt: ${email}`);
+  console.log(`[Auth] Custom Login attempt: ${email}`);
 
-  // Development Bypass for local testing/demo
-  if (process.env.NODE_ENV !== 'production' && password === 'nust_bypass_2024') {
-    console.log(`[Auth] Bypass login triggered for ${email}`);
-    return res.status(200).json({ 
-      user: { id: '00000000-0000-0000-0000-000000000000', email, user_metadata: { full_name: 'Dev User' } },
-      session: { access_token: 'mock-session-token', expires_in: 3600 }
-    });
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required' });
   }
 
   try {
-    let { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    
-    // If login fails because of unconfirmed email, try to auto-confirm and retry
-    if (error && error.message.toLowerCase().includes('confirm')) {
-      console.log(`[Auth] Login blocked by confirmation for ${email}. Attempting auto-confirm...`);
-      
-      // We need to find the user ID to confirm them. Since signIn failed, we fetch them by email.
-      const { data: userList, error: listError } = await supabase.auth.admin.listUsers();
-      const user = userList?.users.find(u => u.email === email);
-      
-      if (user) {
-        await supabase.auth.admin.updateUserById(user.id, { email_confirm: true });
-        console.log(`[Auth] Auto-confirmed user ${user.id} during login retry`);
-        
-        // Retry login
-        const retry = await supabase.auth.signInWithPassword({ email, password });
-        data = retry.data;
-        error = retry.error;
-      }
+    // 1. Find user in custom table
+    const { data: user, error } = await supabase
+      .from('app_users')
+      .select('*')
+      .eq('email', email.trim().toLowerCase())
+      .single();
+
+    if (error || !user) {
+      console.warn(`[Auth] Login failed: User not found (${email})`);
+      return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    if (error) {
-      console.warn(`[Auth] Login failed for ${email}:`, error.message);
-      
-      // Handle specific Supabase errors
-      if (error.message.includes('Invalid login credentials')) {
-        return res.status(401).json({ error: 'The email or password you entered is incorrect.' });
-      }
-      
-      return res.status(401).json({ error: error.message });
+    // 2. Compare password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      console.warn(`[Auth] Login failed: Incorrect password for ${email}`);
+      return res.status(401).json({ error: 'Invalid email or password' });
     }
+
+    // 3. Generate JWT
+    const token = jwt.sign(
+      { id: user.id, email: user.email },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    console.log(`[Auth] Custom Login successful: ${user.id}`);
     
-    console.log(`[Auth] Login successful: ${data.user?.id}`);
-    return res.status(200).json({ user: data.user, session: data.session });
+    // Return format compatible with existing frontend AuthService
+    return res.status(200).json({ 
+      user: { 
+        id: user.id, 
+        email: user.email, 
+        user_metadata: { 
+          full_name: user.full_name, 
+          student_id: user.student_id 
+        } 
+      }, 
+      session: { 
+        access_token: token, 
+        expires_in: 604800 // 7 days in seconds
+      } 
+    });
   } catch (err) {
     console.error(`[Auth] Internal login error:`, err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Forgot Password
+// Forgot Password (Dummy for now, since we aren't sending emails)
 router.post('/forgot-password', async (req: Request, res: Response) => {
-  const { email } = req.body;
-  console.log(`[Auth] Forgot password request for: ${email}`);
-
-  try {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/reset-password`,
-    });
-
-    if (error) {
-      console.error(`[Auth] Forgot password failed for ${email}:`, error);
-      return res.status(400).json({ error: error.message });
-    }
-
-    return res.status(200).json({ message: 'Password reset email sent' });
-  } catch (err) {
-    console.error(`[Auth] Internal forgot-password error:`, err);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
+  return res.status(501).json({ error: 'Forgot password is not supported in custom auth mode yet.' });
 });
 
 export default router;
+
