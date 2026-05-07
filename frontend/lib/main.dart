@@ -1,5 +1,3 @@
-import 'package:device_preview/device_preview.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -11,10 +9,12 @@ import 'admin/screens/admin_dashboard_screen.dart';
 import 'admin/screens/analytics_screen.dart';
 import 'admin/screens/document_management_screen.dart';
 import 'admin/screens/user_management_screen.dart';
+import 'auth/screens/forgot_password_screen.dart';
 import 'auth/screens/login_screen.dart';
 import 'auth/screens/onboarding_flow_screen.dart';
 import 'auth/screens/onboarding_screen.dart';
 import 'auth/screens/register_screen.dart';
+import 'auth/screens/reset_password_screen.dart';
 import 'catalogue/screens/catalogue_screen.dart';
 import 'catalogue/screens/document_detail_screen.dart';
 import 'downloads/screens/download_manager_screen.dart';
@@ -23,6 +23,7 @@ import 'home/screens/home_screen.dart';
 import 'profile/screens/edit_profile_screen.dart';
 import 'profile/screens/my_uploads_screen.dart';
 import 'profile/screens/profile_screen.dart';
+import 'profile/screens/settings_screen.dart';
 import 'ratings/screens/ratings_screen.dart';
 import 'reader/screens/pdf_reader_screen.dart';
 import 'search/screens/explore_screen.dart';
@@ -43,15 +44,11 @@ Future<void> main() async {
   );
 
   runApp(
-    DevicePreview(
-      enabled: kDebugMode,
-      defaultDevice: Devices.ios.iPhone13ProMax,
-      builder: (context) => MultiProvider(
-        providers: [
-          ChangeNotifierProvider(create: (_) => AuthService()),
-        ],
-        child: const NustLibraryApp(),
-      ),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthService()),
+      ],
+      child: const NustLibraryApp(),
     ),
   );
 }
@@ -68,7 +65,7 @@ class NustLibraryApp extends StatelessWidget {
         if (!auth.isReady) return '/splash';
         
         final path = state.matchedLocation;
-        final authPaths = {'/login', '/register', '/get-started'};
+        final authPaths = {'/login', '/register', '/get-started', '/forgot-password', '/reset-password'};
 
         // 1. Must see Get Started first
         if (!auth.hasSeenGetStarted && path != '/get-started') return '/get-started';
@@ -100,6 +97,8 @@ class NustLibraryApp extends StatelessWidget {
         GoRoute(path: '/get-started', builder: (context, state) => const OnboardingScreen()),
         GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
         GoRoute(path: '/register', builder: (context, state) => const RegisterScreen()),
+        GoRoute(path: '/forgot-password', builder: (context, state) => const ForgotPasswordScreen()),
+        GoRoute(path: '/reset-password', builder: (context, state) => const ResetPasswordScreen()),
         GoRoute(path: '/onboarding', builder: (context, state) => const OnboardingFlowScreen()),
         ShellRoute(
           builder: (context, state, child) => AppShell(child: child),
@@ -111,6 +110,7 @@ class NustLibraryApp extends StatelessWidget {
             GoRoute(path: '/downloads', builder: (context, state) => const OfflineLibraryScreen()),
             GoRoute(path: '/profile', builder: (context, state) => const ProfileScreen()),
             GoRoute(path: '/profile/edit', builder: (context, state) => const EditProfileScreen()),
+            GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
           ],
         ),
         GoRoute(
@@ -147,8 +147,6 @@ class NustLibraryApp extends StatelessWidget {
       title: 'NUST Library',
       debugShowCheckedModeBanner: false,
       routerConfig: router,
-      locale: DevicePreview.locale(context),
-      builder: DevicePreview.appBuilder,
       theme: baseTheme.copyWith(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFFFF3D1B),

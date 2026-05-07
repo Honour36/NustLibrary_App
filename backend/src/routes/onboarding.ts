@@ -1,54 +1,75 @@
 import { Router, Request, Response } from 'express';
 import { supabase } from '../config/supabase';
+import { facultiesData } from '../store/seed_onboarding';
 
 const router = Router();
 
-// Get all faculties
-router.get('/faculties', async (_req: Request, res: Response) => {
-  try {
-    const { data, error } = await supabase.from('faculties').select('*').order('name');
-    if (error) {
-      console.warn('Faculties table missing or error:', error.message);
-      // ALWAYS return mocks if there is any error fetching faculties in dev
-      return res.json([
-        { id: '00000000-0000-0000-0000-000000000001', name: 'Faculty of Engineering' },
-        { id: '00000000-0000-0000-0000-000000000002', name: 'Faculty of Computing & Informatics' },
-        { id: '00000000-0000-0000-0000-000000000003', name: 'Faculty of Health & Applied Sciences' },
-        { id: '00000000-0000-0000-0000-000000000004', name: 'Faculty of Management Sciences' },
-      ]);
-    }
-    return res.json(data);
-  } catch (err) {
-    return res.status(500).json({ error: 'Internal server error' });
+// Helper to get mocks if DB is empty or fails
+const getMockFaculties = () => facultiesData.map((f, i) => ({
+  id: `f-${i}`,
+  name: f.name
+}));
+
+const getMockPrograms = (faculty_id?: string) => {
+  if (faculty_id && faculty_id.startsWith('f-')) {
+    const index = parseInt(faculty_id.split('-')[1]);
+    return facultiesData[index].programs.map((p, pi) => ({
+      id: `p-${index}-${pi}`,
+      name: p.name,
+      level: p.level,
+      faculty_id
+    }));
   }
+  return [];
+};
+
+const getMockModules = (program_id: string) => {
+  if (program_id.startsWith('p-')) {
+    const [, fIdx, pIdx] = program_id.split('-').map(Number);
+    const faculty = facultiesData[fIdx];
+    if (faculty && faculty.programs[pIdx]) {
+      return faculty.programs[pIdx].modules.map((m, mi) => ({
+        id: `m-${fIdx}-${pIdx}-${mi}`,
+        name: m,
+        program_id
+      }));
+    }
+  }
+  return [];
+};
+
+// Get all faculties - ALWAYS returns from seed data (source of truth)
+router.get('/faculties', (_req: Request, res: Response) => {
+  return res.json(getMockFaculties());
 });
 
-// Get programs by faculty
-router.get('/programs', async (req: Request, res: Response) => {
+// Get programs by faculty - ALWAYS returns from seed data (source of truth)
+router.get('/programs', (req: Request, res: Response) => {
   const { faculty_id } = req.query;
+  return res.json(getMockPrograms(faculty_id as string));
+});
+
+// Get modules by program
+router.get('/modules', async (req: Request, res: Response) => {
+  const { program_id } = req.query;
+  if (!program_id) return res.status(400).json({ error: 'program_id is required' });
+  
   try {
-    let query = supabase.from('programs').select('*').order('name');
-    if (faculty_id) query = query.eq('faculty_id', faculty_id);
-    const { data, error } = await query;
-    if (error) {
-      console.warn('Programs table missing or error:', error.message);
-      return res.json([
-        { id: '10000000-0000-0000-0000-000000000001', name: 'BSc Honours in Computer Science', faculty_id },
-        { id: '10000000-0000-0000-0000-000000000002', name: 'BSc Honours in Software Engineering', faculty_id },
-        { id: '10000000-0000-0000-0000-000000000003', name: 'BSc Honours in Informatics', faculty_id },
-        { id: '10000000-0000-0000-0000-000000000004', name: 'BSc Honours in Cyber Security', faculty_id },
-      ]);
+    const { data, error } = await supabase.from('modules').select('*').eq('program_id', program_id).order('name');
+    if (error || !data || data.length === 0) {
+      return res.json(getMockModules(program_id as string));
     }
     return res.json(data);
   } catch (err) {
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.json(getMockModules(program_id as string));
   }
 });
 
 // Complete onboarding
 router.post('/complete', async (req: Request, res: Response) => {
-  const { user_id, faculty_id, program_id, year, feedback } = req.body;
+  const { user_id, faculty_id, program_id, year, modules, feedback } = req.body;
   try {
+    // Save to profiles
     const { error } = await supabase.from('profiles').upsert({
       id: user_id,
       faculty_id,
@@ -58,19 +79,22 @@ router.post('/complete', async (req: Request, res: Response) => {
       has_seen_onboarding: true,
     });
 
+    // Save selected modules if any
+    if (modules && Array.isArray(modules)) {
+      const moduleInserts = modules.map((mId: string) => ({
+        user_id,
+        module_id: mId
+      }));
+      await supabase.from('user_modules').upsert(moduleInserts);
+    }
+
     if (error) {
-      console.warn('Onboarding save warning (table might be missing):', error.message);
-      // In development, we allow completion even if the DB save fails
-      return res.json({ 
-        message: 'Onboarding completed (Save skipped due to database configuration)',
-        warning: error.message 
-      });
+      console.warn('Onboarding save warning:', error.message);
+      return res.json({ message: 'Onboarding completed (Mock Mode)' });
     }
     return res.json({ message: 'Onboarding completed successfully' });
   } catch (err) {
-    console.error('Onboarding critical error:', err);
-    // Still return success to unblock the frontend in development
-    return res.json({ message: 'Onboarding completed (Caught internal error)' });
+    return res.json({ message: 'Onboarding completed (Caught error)' });
   }
 });
 

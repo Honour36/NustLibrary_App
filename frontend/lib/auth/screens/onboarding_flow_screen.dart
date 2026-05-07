@@ -19,17 +19,105 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
   final ApiService _api = ApiService();
   
   int _currentStep = 0;
-  final int _totalSteps = 5;
+  final int _totalSteps = 6;
 
   List<Map<String, dynamic>> _faculties = [];
   List<Map<String, dynamic>> _programs = [];
+  List<Map<String, dynamic>> _modules = [];
   
   String? _selectedFacultyId;
   String? _selectedProgramId;
+  List<String> _selectedModuleIds = [];
   String? _selectedYear;
   final TextEditingController _feedbackController = TextEditingController();
   
   bool _isLoading = false;
+
+  // Real Data Fallback - Ensuring correct names are ALWAYS shown
+  final List<Map<String, dynamic>> _nustData = [
+    {
+      'id': 'f-0',
+      'name': 'Faculty of Applied Science',
+      'programs': [
+        {'id': 'p-0-0', 'name': 'MSc in Applied Microbiology and Biotechnology'},
+        {'id': 'p-0-1', 'name': 'MSc in Applied Geographical Information Science and Remote Sensing'},
+        {'id': 'p-0-2', 'name': 'MSc in Applied Mathematical Modelling'},
+        {'id': 'p-0-3', 'name': 'MSc in Big Data'},
+        {'id': 'p-0-4', 'name': 'MSc in Computer Science'},
+        {'id': 'p-0-12', 'name': 'BSc Honours in Applied Biology/Biotechnology'},
+        {'id': 'p-0-13', 'name': 'BSc Honours in Computer Science'},
+        {'id': 'p-0-14', 'name': 'BSc Honours in Informatics'},
+      ]
+    },
+    {
+      'id': 'f-1',
+      'name': 'Faculty of Business and Economic Sciences',
+      'programs': [
+        {'id': 'p-1-0', 'name': 'BCom Honours in Accounting'},
+        {'id': 'p-1-3', 'name': 'BCom Honours in Finance'},
+        {'id': 'p-1-6', 'name': 'Bachelor of Business Studies / Commerce (General)'},
+      ]
+    },
+    {
+      'id': 'f-2',
+      'name': 'Faculty of the Built Environment',
+      'programs': [
+        {'id': 'p-2-0', 'name': 'BSc Honours in Architecture'},
+        {'id': 'p-2-1', 'name': 'BSc Honours in Construction Management'},
+      ]
+    },
+    {
+      'id': 'f-3',
+      'name': 'Faculty of Communication and Information Science',
+      'programs': [
+        {'id': 'p-3-0', 'name': 'BSc Honours in Records and Archives Management'},
+        {'id': 'p-3-1', 'name': 'BSc Honours in Journalism and Media Studies'},
+        {'id': 'p-3-2', 'name': 'BSc Honours in Library and Information Science'},
+      ]
+    },
+    {
+      'id': 'f-4',
+      'name': 'Faculty of Medicine',
+      'programs': [
+        {'id': 'p-4-0', 'name': 'Bachelor of Medicine and Bachelor of Surgery (MBBS)'},
+        {'id': 'p-4-1', 'name': 'BSc in Nursing'},
+      ]
+    },
+    {
+      'id': 'f-5',
+      'name': 'Faculty of Environmental Science',
+      'programs': [
+        {'id': 'p-5-0', 'name': 'MSc in Disaster Risk Management'},
+        {'id': 'p-5-1', 'name': 'MSc in Development Studies'},
+      ]
+    },
+    {
+      'id': 'f-6',
+      'name': 'Faculty of Science and Technology Education',
+      'programs': [
+        {'id': 'p-6-0', 'name': 'Bachelor of Education (Various STEM subjects)'},
+      ]
+    },
+    {
+      'id': 'f-7',
+      'name': 'Faculty of Engineering',
+      'programs': [
+        {'id': 'p-7-0', 'name': 'BSc Honours in Agricultural Engineering'},
+        {'id': 'p-7-1', 'name': 'BSc Honours in Chemical Engineering'},
+        {'id': 'p-7-2', 'name': 'BSc Honours in Civil and Water Engineering'},
+        {'id': 'p-7-3', 'name': 'BSc Honours in Electronic Engineering'},
+        {'id': 'p-7-4', 'name': 'BSc Honours in Industrial and Manufacturing Engineering'},
+      ]
+    },
+    {
+      'id': 'f-8',
+      'name': 'Faculty of Agricultural Science and Technology',
+      'programs': [
+        {'id': 'p-8-0', 'name': 'BSc Honours in Agricultural Information Technology'},
+        {'id': 'p-8-1', 'name': 'BSc Honours in Agribusiness'},
+      ]
+    }
+  ];
 
   @override
   void initState() {
@@ -38,38 +126,48 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
   }
 
   Future<void> _loadFaculties() async {
-    setState(() => _isLoading = true);
+    // Load immediately from local authoritative data — no API round-trip needed
+    setState(() => _faculties = _nustData);
+    // Optionally sync from backend in the background (won't override if backend fails)
     try {
-      _faculties = await _api.getFaculties();
-    } catch (e) {
-      debugPrint('Error loading faculties: $e');
-      // Fallback/Mock for development if API fails - Matching NUST Faculties
-      _faculties = [
-        {'id': 'f1', 'name': 'Faculty of Engineering'},
-        {'id': 'f2', 'name': 'Faculty of Computing & Informatics'},
-        {'id': 'f3', 'name': 'Faculty of Health & Applied Sciences'},
-        {'id': 'f4', 'name': 'Faculty of Management Sciences'},
-        {'id': 'f5', 'name': 'Faculty of Applied Science'},
-        {'id': 'f6', 'name': 'Faculty of Business and Economic Sciences'},
-      ];
-    } finally {
-      setState(() => _isLoading = false);
+      final fetched = await _api.getFaculties();
+      // Only use backend data if it has the expected faculty count
+      if (fetched.length >= _nustData.length) {
+        setState(() => _faculties = fetched);
+      }
+    } catch (_) {
+      // Local data is already loaded, ignore
     }
   }
 
   Future<void> _loadPrograms(String facultyId) async {
     setState(() => _isLoading = true);
     try {
-      _programs = await _api.getPrograms(facultyId);
+      final fetched = await _api.getPrograms(facultyId);
+      if (fetched.isNotEmpty) {
+        setState(() => _programs = fetched);
+      } else {
+        // Use local fallback if API returns empty
+        final faculty = _nustData.firstWhere((f) => f['id'] == facultyId, orElse: () => {});
+        setState(() => _programs = List<Map<String, dynamic>>.from(faculty['programs'] ?? []));
+      }
     } catch (e) {
       debugPrint('Error loading programs: $e');
-      // Fallback/Mock for development
-      _programs = [
-        {'id': 'p1', 'name': 'BSc Honours in Computer Science'},
-        {'id': 'p2', 'name': 'BSc Honours in Software Engineering'},
-        {'id': 'p3', 'name': 'BSc Honours in Informatics'},
-        {'id': 'p4', 'name': 'BSc Honours in Cyber Security'},
-      ];
+      final faculty = _nustData.firstWhere((f) => f['id'] == facultyId, orElse: () => {});
+      setState(() => _programs = List<Map<String, dynamic>>.from(faculty['programs'] ?? []));
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _loadModules(String programId) async {
+    setState(() => _isLoading = true);
+    try {
+      _modules = await _api.getModules(programId);
+      setState(() => _selectedModuleIds = []);
+    } catch (e) {
+      debugPrint('Error loading modules: $e');
+      setState(() => _modules = []);
     } finally {
       setState(() => _isLoading = false);
     }
@@ -104,6 +202,7 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
         facultyId: _selectedFacultyId!,
         programId: _selectedProgramId!,
         year: _selectedYear!,
+        modules: _selectedModuleIds,
         feedback: _feedbackController.text,
       );
       await auth.completeOnboarding();
@@ -140,6 +239,7 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
                   _buildFacultyStep(),
                   _buildProgramStep(),
                   _buildYearStep(),
+                  _buildModuleStep(),
                   _buildFeedbackStep(),
                   _buildAllSetStep(),
                 ],
@@ -210,7 +310,7 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
       subtitle: 'Which department will you be calling home?',
       child: DropdownButtonFormField<String>(
         isExpanded: true,
-        initialValue: _selectedFacultyId,
+        value: _selectedFacultyId,
         decoration: _inputDecoration('Faculty', Symbols.school),
         items: _faculties.map((f) {
           return DropdownMenuItem<String>(
@@ -219,6 +319,7 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
           );
         }).toList(),
         onChanged: (val) {
+          if (val == _selectedFacultyId) return;
           setState(() {
             _selectedFacultyId = val;
             _selectedProgramId = null;
@@ -239,8 +340,7 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
       subtitle: 'Tell us exactly what you are studying.',
       child: DropdownButtonFormField<String>(
         isExpanded: true,
-        key: ValueKey(_selectedFacultyId),
-        initialValue: _selectedProgramId,
+        value: _selectedProgramId,
         decoration: _inputDecoration('Program', Symbols.book_5),
         items: _programs.map((p) {
           return DropdownMenuItem<String>(
@@ -248,11 +348,81 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
             child: Text(p['name'].toString(), overflow: TextOverflow.ellipsis),
           );
         }).toList(),
-        onChanged: (val) => setState(() => _selectedProgramId = val),
+        onChanged: (val) {
+          setState(() {
+            _selectedProgramId = val;
+            _modules = [];
+            _selectedModuleIds = [];
+          });
+          if (val != null) _loadModules(val);
+        },
         hint: const Text('Select Program'),
         disabledHint: const Text('Select a faculty first'),
       ),
       onContinue: _selectedProgramId != null ? _nextPage : null,
+    );
+  }
+
+  Widget _buildModuleStep() {
+    return _buildStepLayout(
+      image: 'assets/images/Bibliophile-bro.svg',
+      title: 'Choose your Modules',
+      subtitle: 'Select the courses you are currently taking.',
+      child: _modules.isEmpty 
+        ? Center(
+            child: _isLoading 
+              ? const CircularProgressIndicator() 
+              : const Text('No modules found for this program.', style: TextStyle(color: Color(0xFF64748B))),
+          )
+        : Column(
+            children: _modules.map((m) {
+              final id = m['id'].toString();
+              final isSelected = _selectedModuleIds.contains(id);
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: InkWell(
+                  onTap: () {
+                    setState(() {
+                      if (isSelected) {
+                        _selectedModuleIds.remove(id);
+                      } else {
+                        _selectedModuleIds.add(id);
+                      }
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isSelected ? const Color(0xFFFF3D1B).withValues(alpha: 0.1) : Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isSelected ? const Color(0xFFFF3D1B) : const Color(0xFFE2E8F0),
+                        width: 2,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            m['name'].toString(),
+                            style: TextStyle(
+                              color: isSelected ? const Color(0xFFFF3D1B) : const Color(0xFF1A0E0C),
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        if (isSelected)
+                          const Icon(Symbols.check_circle, color: Color(0xFFFF3D1B), size: 24, fill: 1),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+      onContinue: _selectedModuleIds.isNotEmpty ? _nextPage : null,
     );
   }
 

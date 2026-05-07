@@ -122,6 +122,24 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  Future<String?> forgotPassword(String email) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/forgot-password'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'email': email.trim()}),
+      );
+
+      if (response.statusCode != 200) {
+        final data = json.decode(response.body);
+        return data['error'] ?? 'Failed to send reset email.';
+      }
+      return null; // Success
+    } catch (e) {
+      return 'Could not connect to the server.';
+    }
+  }
+
   Future<void> logout() async {
     try {
       await http.post(Uri.parse('$baseUrl/logout'));

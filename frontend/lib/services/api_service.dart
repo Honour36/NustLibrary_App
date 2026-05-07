@@ -31,14 +31,33 @@ class ApiService {
     return json.decode(response.body);
   }
 
-  Future<HomePayload> getHomePayload() async {
-    final data = await _get('/home');
+  Future<HomePayload> getHomePayload({String? userId}) async {
+    final data = await _get('/home', query: userId != null ? {'user_id': userId} : null);
     return HomePayload.fromJson(Map<String, dynamic>.from(data as Map));
+  }
+
+  Future<void> updateProgress(String pdfId, String userId, double progress) async {
+    await _post('/pdfs/$pdfId/progress', body: {'user_id': userId, 'progress': progress});
   }
 
   Future<List<PdfDocument>> getFeaturedPdfs() async {
     final data = await _get('/pdfs/featured/list');
     return (data as List<dynamic>).map((item) => PdfDocument.fromJson(item as Map<String, dynamic>)).toList();
+  }
+
+  Future<List<PdfDocument>> getRecommendedPdfs(String categoryId, String excludeId) async {
+    final body = await _get(
+      '/pdfs',
+      query: {
+        'category_id': categoryId,
+        'limit': '5',
+      },
+    );
+    final list = (body['data'] as List<dynamic>? ?? const []);
+    return list
+        .map((item) => PdfDocument.fromJson(item as Map<String, dynamic>))
+        .where((doc) => doc.id != excludeId)
+        .toList();
   }
 
   Future<List<Category>> getCategories() async {
@@ -188,11 +207,17 @@ class ApiService {
     return (data as List<dynamic>).map((item) => Map<String, dynamic>.from(item as Map)).toList();
   }
 
+  Future<List<Map<String, dynamic>>> getModules(String programId) async {
+    final data = await _get('/onboarding/modules', query: {'program_id': programId});
+    return (data as List<dynamic>).map((item) => Map<String, dynamic>.from(item as Map)).toList();
+  }
+
   Future<void> submitOnboardingCompletion({
     required String userId,
     required String facultyId,
     required String programId,
     required String year,
+    required List<String> modules,
     required String feedback,
   }) async {
     await _post('/onboarding/complete', body: {
@@ -200,6 +225,7 @@ class ApiService {
       'faculty_id': facultyId,
       'program_id': programId,
       'year': year,
+      'modules': modules,
       'feedback': feedback,
     });
   }

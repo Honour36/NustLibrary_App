@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:provider/provider.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../services/api_service.dart';
+import '../../services/auth_service.dart';
 import '../widgets/bookmark_panel.dart';
 import '../widgets/reader_toolbar.dart';
 
@@ -27,6 +30,20 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
   final GlobalKey<SfPdfViewerState> _pdfViewerKey = GlobalKey();
   final List<String> _bookmarks = [];
   bool _isLoading = true;
+  final _api = ApiService();
+
+  Future<void> _updateProgress(int page, int total) async {
+    if (widget.documentId == null) return;
+    final userId = context.read<AuthService>().user?['id']?.toString();
+    if (userId == null) return;
+
+    final progress = page / total;
+    try {
+      await _api.updateProgress(widget.documentId!, userId, progress);
+    } catch (e) {
+      debugPrint('Failed to update progress: $e');
+    }
+  }
 
   Future<void> _addBookmark() {
     final int currentPage = _pdfViewerController.pageNumber;
@@ -102,10 +119,15 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
             widget.url,
             key: _pdfViewerKey,
             controller: _pdfViewerController,
+            onPageChanged: (PdfPageChangedDetails details) {
+              _updateProgress(details.newPageNumber, _pdfViewerController.pageCount);
+            },
             onDocumentLoaded: (PdfDocumentLoadedDetails details) {
               setState(() {
                 _isLoading = false;
               });
+              // Initial progress
+              _updateProgress(_pdfViewerController.pageNumber, _pdfViewerController.pageCount);
             },
             onDocumentLoadFailed: (PdfDocumentLoadFailedDetails details) {
               setState(() {

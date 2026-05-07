@@ -143,7 +143,7 @@ class ProfileScreen extends StatelessWidget {
               child: Column(
                 children: [
                   _SettingsItem(label: 'My Contributions', icon: Symbols.history, onTap: () => context.push('/profile/uploads')),
-                  _SettingsItem(label: 'App Settings', icon: Symbols.settings, onTap: () {}),
+                  _SettingsItem(label: 'App Settings', icon: Symbols.settings, onTap: () => context.push('/settings')),
                   _SettingsItem(label: 'Help & Support', icon: Symbols.help, onTap: () {}),
                 ],
               ),

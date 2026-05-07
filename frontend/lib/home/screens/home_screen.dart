@@ -23,12 +23,14 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _future = _api.getHomePayload();
+    final auth = context.read<AuthService>();
+    _future = _api.getHomePayload(userId: auth.user?['id']?.toString());
   }
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthService>();
+    final userId = auth.user?['id']?.toString();
     final username = auth.displayName.isNotEmpty ? auth.displayName.split(' ').first : 'User';
 
     return Scaffold(
@@ -44,7 +46,7 @@ class _HomeScreenState extends State<HomeScreen> {
             final data = snapshot.data;
 
             return RefreshIndicator(
-              onRefresh: () async => setState(() => _future = _api.getHomePayload()),
+              onRefresh: () async => setState(() => _future = _api.getHomePayload(userId: userId)),
               child: ListView(
                 padding: const EdgeInsets.symmetric(vertical: 20),
                 children: [
@@ -57,7 +59,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Image.asset('assets/images/logo1.png', height: 32),
+                            Image.asset('assets/images/logo1.png', height: 40),
                             const SizedBox(height: 16),
                             Text(
                               'Hello, $username',
@@ -73,7 +75,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ],
                         ),
-                        _NotificationIcon(),
                       ],
                     ),
                   ),
@@ -129,39 +130,6 @@ class _HomeScreenState extends State<HomeScreen> {
             );
           },
         ),
-      ),
-    );
-  }
-}
-
-class _NotificationIcon extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: const Stack(
-        children: [
-          Icon(Symbols.notifications, color: Color(0xFF1A0E0C), size: 26),
-          Positioned(
-            right: 2,
-            top: 2,
-            child: CircleAvatar(
-              radius: 4,
-              backgroundColor: Color(0xFFFF3D1B),
-            ),
-          ),
-        ],
       ),
     );
   }

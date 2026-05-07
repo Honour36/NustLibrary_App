@@ -103,6 +103,31 @@ router.patch('/:id', async (req: Request, res: Response) => {
   }
 });
 
+// Update PDF reading progress
+router.post('/:id/progress', async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { user_id, progress } = req.body;
+  
+  if (!user_id) return res.status(401).json({ error: 'User ID required' });
+
+  try {
+    // Upsert progress
+    const { error } = await supabase.from('reading_progress').upsert(
+      { user_id, pdf_id: id, progress, updated_at: new Date() },
+      { onConflict: 'user_id,pdf_id' }
+    );
+    
+    if (error) {
+      console.warn('Progress upsert error:', error.message);
+      return res.status(400).json({ error: error.message });
+    }
+    
+    return res.json({ message: 'Progress updated' });
+  } catch (err) {
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Delete PDF
 router.delete('/:id', async (req: Request, res: Response) => {
   const { id } = req.params;

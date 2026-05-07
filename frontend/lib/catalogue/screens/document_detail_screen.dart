@@ -230,6 +230,8 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
                         ],
                       ),
                       const SizedBox(height: 40),
+                      _RecommendedSection(categoryId: doc.categoryId, excludeId: doc.id),
+                      const SizedBox(height: 40),
                     ],
                   ),
                 ),
@@ -238,6 +240,97 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
           );
         },
       ),
+    );
+  }
+}
+
+class _RecommendedSection extends StatefulWidget {
+  final String? categoryId;
+  final String excludeId;
+
+  const _RecommendedSection({this.categoryId, required this.excludeId});
+
+  @override
+  State<_RecommendedSection> createState() => _RecommendedSectionState();
+}
+
+class _RecommendedSectionState extends State<_RecommendedSection> {
+  final _api = ApiService();
+  late Future<List<PdfDocument>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _api.getRecommendedPdfs(widget.categoryId ?? '', widget.excludeId);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Recommended Books',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1A0E0C)),
+        ),
+        const SizedBox(height: 16),
+        FutureBuilder<List<PdfDocument>>(
+          future: _future,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const SizedBox(height: 150, child: Center(child: CircularProgressIndicator()));
+            }
+            final books = snapshot.data ?? [];
+            if (books.isEmpty) {
+              return const Text('No recommendations found', style: TextStyle(color: Color(0xFF64748B)));
+            }
+
+            return SizedBox(
+              height: 180,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: books.length,
+                itemBuilder: (context, index) {
+                  final book = books[index];
+                  return GestureDetector(
+                    onTap: () => context.pushReplacement('/document/${book.id}'),
+                    child: Container(
+                      width: 120,
+                      margin: const EdgeInsets.only(right: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Center(
+                                child: SvgPicture.asset(
+                                  'assets/images/Research paper-pana.svg',
+                                  height: 60,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            book.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 }
