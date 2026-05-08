@@ -53,6 +53,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       
       // Logout to ensure clean state and go to login
       await Supabase.instance.client.auth.signOut();
+      if (!mounted) return;
       context.go('/login');
     } on AuthException catch (e) {
       setState(() => _error = e.message);

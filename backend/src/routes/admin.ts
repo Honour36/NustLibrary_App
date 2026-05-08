@@ -45,8 +45,11 @@ router.post('/seed-onboarding', async (_req: Request, res: Response) => {
 
 router.get('/dashboard', async (_req: Request, res: Response) => {
   try {
+    const { count: userCount } = await supabase.from('app_users').select('*', { count: 'exact', head: true });
     const { data: docs } = await supabase.from('pdfs').select('*, categories(name, icon)').limit(5).order('views', { ascending: false });
+    
     const summary = {
+      total_users: userCount ?? 0,
       documents: docs?.length ?? 0,
       pending_uploads: uploads.length,
       flags: flags.length,
@@ -61,7 +64,8 @@ router.get('/dashboard', async (_req: Request, res: Response) => {
         email: `${item.user_name.toLowerCase().replace(/ /g, '.')}@student.nust.na`,
       })),
     });
-  } catch {
+  } catch (err) {
+    console.error('Dashboard error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });

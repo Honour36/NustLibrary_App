@@ -5,10 +5,10 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'services/notification_service.dart';
 
-import 'admin/screens/admin_dashboard_screen.dart';
-import 'admin/screens/analytics_screen.dart';
-import 'admin/screens/document_management_screen.dart';
-import 'admin/screens/user_management_screen.dart';
+import 'dashboard/screens/dashboard_screen.dart';
+import 'dashboard/screens/analytics_screen.dart';
+import 'dashboard/screens/document_management_screen.dart';
+import 'dashboard/screens/user_management_screen.dart';
 import 'auth/screens/forgot_password_screen.dart';
 import 'auth/screens/login_screen.dart';
 import 'auth/screens/onboarding_flow_screen.dart';
@@ -134,7 +134,10 @@ class NustLibraryApp extends StatelessWidget {
         GoRoute(path: '/downloads/manager', builder: (context, state) => const DownloadManagerScreen()),
         GoRoute(path: '/profile/uploads', builder: (context, state) => const MyUploadsScreen()),
         GoRoute(path: '/ratings', builder: (context, state) => const RatingsScreen()),
-        GoRoute(path: '/admin', builder: (context, state) => const AdminDashboardScreen()),
+        GoRoute(
+          path: '/admin', 
+          builder: (context, state) => const DashboardScreen(),
+        ),
         GoRoute(path: '/admin/documents', builder: (context, state) => const DocumentManagementScreen()),
         GoRoute(path: '/admin/users', builder: (context, state) => const UserManagementScreen()),
         GoRoute(path: '/admin/analytics', builder: (context, state) => const AnalyticsScreen()),

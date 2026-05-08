@@ -3,10 +3,46 @@ import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
+import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  final ApiService _api = ApiService();
+  Map<String, dynamic>? _profileData;
+  bool _isLoadingProfile = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    final auth = context.read<AuthService>();
+    if (auth.user == null) return;
+    
+    try {
+      final data = await _api.getUserProfile(auth.user!['id']);
+      if (mounted) {
+        setState(() {
+          _profileData = data;
+          _isLoadingProfile = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading profile: $e');
+      if (mounted) {
+        setState(() => _isLoadingProfile = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -81,14 +117,19 @@ class ProfileScreen extends StatelessWidget {
                     style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF1A0E0C)),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    '${metadata['faculty'] ?? 'Faculty of Computing'} · ${metadata['program'] ?? 'Computer Science'}',
-                    style: const TextStyle(color: Color(0xFF64748B), fontSize: 14),
-                  ),
-                  Text(
-                    'Academic Year ${metadata['year'] ?? '3'}',
-                    style: const TextStyle(color: Color(0xFF64748B), fontSize: 14),
-                  ),
+                  if (_isLoadingProfile)
+                    const SizedBox(height: 40, child: Center(child: SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))))
+                  else ...[
+                    Text(
+                      '${_profileData?['faculty'] ?? metadata['faculty'] ?? 'NUST Faculty'} · ${_profileData?['program'] ?? metadata['program'] ?? 'Academic Program'}',
+                      style: const TextStyle(color: Color(0xFF64748B), fontSize: 14),
+                      textAlign: TextAlign.center,
+                    ),
+                    Text(
+                      '${_profileData?['year'] ?? metadata['year'] ?? 'Unknown'} Academic Year',
+                      style: const TextStyle(color: Color(0xFF64748B), fontSize: 14),
+                    ),
+                  ],
                   const SizedBox(height: 24),
                   OutlinedButton.icon(
                     onPressed: () => context.push('/profile/edit'),

@@ -1,1 +1,2 @@
-void main() { print('Dart is alive'); }
+import 'package:flutter/foundation.dart';
+void main() { debugPrint('Dart is alive'); }

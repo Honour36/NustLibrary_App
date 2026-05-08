@@ -249,4 +249,9 @@ class ApiService {
       throw Exception('Update failed: ${response.statusCode} - ${resBody['error'] ?? response.body}');
     }
   }
+
+  Future<Map<String, dynamic>> getUserProfile(String userId) async {
+    final data = await _get('/auth/profile/$userId');
+    return Map<String, dynamic>.from(data as Map);
+  }
 }

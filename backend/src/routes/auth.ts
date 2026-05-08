@@ -129,6 +129,30 @@ router.post('/login', async (req: Request, res: Response) => {
   }
 });
 
+// Get User Profile (including faculty and program names)
+router.get('/profile/:id', async (req: Request, res: Response) => {
+  const { id } = req.params;
+  try {
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('*, faculties(name), programs(name)')
+      .eq('id', id)
+      .single();
+
+    if (error || !profile) {
+      return res.status(404).json({ error: 'Profile not found' });
+    }
+
+    return res.json({
+      faculty: profile.faculties?.name || 'Unknown Faculty',
+      program: profile.programs?.name || 'Unknown Program',
+      year: profile.academic_year || 'Unknown Year'
+    });
+  } catch (err) {
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Forgot Password (Dummy for now, since we aren't sending emails)
 router.post('/forgot-password', async (req: Request, res: Response) => {
   return res.status(501).json({ error: 'Forgot password is not supported in custom auth mode yet.' });

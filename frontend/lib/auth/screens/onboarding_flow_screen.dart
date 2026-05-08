@@ -310,7 +310,7 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
       subtitle: 'Which department will you be calling home?',
       child: DropdownButtonFormField<String>(
         isExpanded: true,
-        value: _selectedFacultyId,
+        initialValue: _selectedFacultyId,
         decoration: _inputDecoration('Faculty', Symbols.school),
         items: _faculties.map((f) {
           return DropdownMenuItem<String>(
@@ -340,7 +340,7 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
       subtitle: 'Tell us exactly what you are studying.',
       child: DropdownButtonFormField<String>(
         isExpanded: true,
-        value: _selectedProgramId,
+        initialValue: _selectedProgramId,
         decoration: _inputDecoration('Program', Symbols.book_5),
         items: _programs.map((p) {
           return DropdownMenuItem<String>(
