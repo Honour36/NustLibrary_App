@@ -24,19 +24,27 @@ const App: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        console.log('Fetching live statistics...');
         const response = await api.get('/admin/dashboard');
         const users = response.data.summary.total_users || 0;
-        // Start animation after a small delay
-        setTimeout(() => {
-          count.set(users);
-        }, 500);
+        console.log('Successfully fetched users:', users);
+        
+        // Update the count with animation
+        count.set(users);
       } catch (error) {
-        console.error('Error fetching dashboard data:', error);
+        console.error('Failed to fetch dashboard data:', error);
       } finally {
         setLoading(false);
       }
     };
+
+    // Initial fetch
     fetchData();
+
+    // Poll every 5 seconds for real-time updates
+    const interval = setInterval(fetchData, 5000);
+
+    return () => clearInterval(interval);
   }, [count]);
 
   return (
@@ -46,6 +54,10 @@ const App: React.FC = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8 }}
       >
+        <div className="live-indicator">
+          <span className="dot"></span>
+          LIVE TRACKING
+        </div>
         <div className="label">Total Library Users</div>
         <motion.div className="counter">
           {displayCount}
