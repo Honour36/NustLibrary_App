@@ -22,6 +22,8 @@ const App: React.FC = () => {
   });
 
   useEffect(() => {
+    console.log('Dashboard connecting to API at:', import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api');
+    
     const fetchData = async () => {
       try {
         console.log('Fetching live statistics...');
@@ -54,10 +56,6 @@ const App: React.FC = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8 }}
       >
-        <div className="live-indicator">
-          <span className="dot"></span>
-          LIVE TRACKING
-        </div>
         <div className="label">Total Library Users</div>
         <motion.div className="counter">
           {displayCount}
